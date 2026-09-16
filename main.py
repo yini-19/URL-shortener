@@ -24,6 +24,13 @@ class ShortenRequest(BaseModel):
 class ShortenResponse(BaseModel):
     short_url: str
 
+class StatsResponse(BaseModel):
+    code: str
+    original_url: str
+    clicks: int
+    created_at: str
+    expires_at: Optional[str] = None
+
 storage.init_db()
 
 BASE_URL = os.environ.get("BASE_URL", "http://127.0.0.1:8000")
@@ -53,6 +60,20 @@ def create_short_link(request: ShortenRequest):
     short_url = f"{BASE_URL}/{code}"
     return ShortenResponse(short_url=short_url)
 
+@app.get("/stats/{code}", response_model=StatsResponse)
+def get_link_stats(code: str):
+    record = storage.get_link(code)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Short link not found")
+
+    return StatsResponse(
+        code=code,
+        original_url=record["original_url"],
+        clicks=record["clicks"],
+        created_at=record["created_at"],
+        expires_at=record["expires_at"],
+    )
+
 @app.get("/{code}")
 def redirect_to_url(code: str):
     record = storage.get_link(code)
@@ -67,3 +88,5 @@ def redirect_to_url(code: str):
     storage.increment_clicks(code)
 
     return RedirectResponse(url=record["original_url"])
+
+
