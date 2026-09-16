@@ -16,18 +16,19 @@ def init_db():
             original_url TEXT NOT NULL,
             creator_email TEXT NOT NULL,
             created_at TIMESTAMP NOT NULL,
-            clicks INTEGER NOT NULL DEFAULT 0
+            clicks INTEGER NOT NULL DEFAULT 0,
+            expires_at TIMESTAMP
             )
     """)
 
     conn.commit()
     conn.close()
 
-def save_link(code: str, original_url: str, creator_email: str):
+def save_link(code: str, original_url: str, creator_email: str, expires_at=None):
     conn = get_connection()
     conn.execute(
-        "INSERT INTO links (code, original_url, creator_email, created_at, clicks) VALUES (?, ?, ?, ?, ?)",
-        (code, original_url, creator_email, datetime.now(timezone.utc), 0),
+        "INSERT INTO links (code, original_url, creator_email, created_at, clicks, expires_at) VALUES (?, ?, ?, ?, ?, ?)",
+        (code, original_url, creator_email, datetime.now(timezone.utc), 0, expires_at),
     )
     conn.commit()
     conn.close()

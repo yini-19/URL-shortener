@@ -5,8 +5,12 @@ from datetime import datetime, timezone
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, HttpUrl, EmailStr
+
 import os
 import storage
+from typing import Optional
+from datetime import timedelta
+
 
 app = FastAPI()
 
@@ -15,6 +19,7 @@ class ShortenRequest(BaseModel):
     Validation (URL format, email format) is handled automatically by Pydantic's HttpUrl and EmailStr types."""
     original_url: HttpUrl
     creator_email: EmailStr
+    expires_in_days: Optional[int]= None
 
 class ShortenResponse(BaseModel):
     short_url: str
@@ -39,7 +44,11 @@ def create_short_link(request: ShortenRequest):
     while storage.code_exist(code):
         code = generate_code()
 
-    storage.save_link(code, str(request.original_url), request.creator_email)
+    expires_at = None
+    if request.expires_in_days is not None:
+        expires_at = datetime.now(timezone.utc) + timedelta(days=request.expires_in_days)
+
+    storage.save_link(code, str(request.original_url), request.creator_email, expires_at)
 
     short_url = f"{BASE_URL}/{code}"
     return ShortenResponse(short_url=short_url)
@@ -48,8 +57,13 @@ def create_short_link(request: ShortenRequest):
 def redirect_to_url(code: str):
     record = storage.get_link(code)
     if record is None:
-        raise HTTPException(status_code=404, detail="short link not found")
-    
+        raise HTTPException(status_code=404, detail="Short link not found")
+
+    if record["expires_at"] is not None:
+        expires_at = datetime.fromisoformat(record["expires_at"])
+        if datetime.now(timezone.utc) > expires_at:
+            raise HTTPException(status_code=410, detail="This link has expired")
+
     storage.increment_clicks(code)
-    
+
     return RedirectResponse(url=record["original_url"])
