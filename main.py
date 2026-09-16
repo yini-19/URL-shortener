@@ -7,7 +7,6 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, HttpUrl, EmailStr
 from fastapi.middleware.cors import CORSMiddleware
 
-
 import os
 import storage
 from typing import Optional
@@ -15,6 +14,14 @@ from datetime import timedelta
 
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class ShortenRequest(BaseModel):
     """Request body for creating a short link.
@@ -93,9 +100,5 @@ def redirect_to_url(code: str):
 
 
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
+
