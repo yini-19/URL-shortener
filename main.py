@@ -2,24 +2,26 @@ import random
 import string
 from datetime import datetime, timezone
 
-from fastapi import FastAPI
-from pydantic import BaseModel
-
-from fastapi import HTTPException
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import RedirectResponse
+from pydantic import BaseModel, HttpUrl, EmailStr
+import os
+import storage
 
 app = FastAPI()
 
 class ShortenRequest(BaseModel):
-    original_url: str
-    creator_email: str
+    """Request body for creating a short link.
+    Validation (URL format, email format) is handled automatically by Pydantic's HttpUrl and EmailStr types."""
+    original_url: HttpUrl
+    creator_email: EmailStr
 
 class ShortenResponse(BaseModel):
     short_url: str
 
-storage = {}
-BASE_URL = "http://127.0.0.1:8000"
+storage.init_db()
 
+BASE_URL = os.environ.get("BASE_URL", "http://127.0.0.1:8000")
 
 def generate_code(length=6):
     characters = string.ascii_letters + string.digits
@@ -34,25 +36,20 @@ def health_check():
 @app.post("/shorten", response_model=ShortenResponse)
 def create_short_link(request: ShortenRequest):
     code = generate_code()
-    while code in storage:
+    while storage.code_exist(code):
         code = generate_code()
 
-    storage[code] = {
-        "original_url": request.original_url,
-        "creator_email": request.creator_email,
-        "created_at": datetime.now(timezone.utc),
-        "clicks": 0,
-    }
+    storage.save_link(code, str(request.original_url), request.creator_email)
 
     short_url = f"{BASE_URL}/{code}"
     return ShortenResponse(short_url=short_url)
 
 @app.get("/{code}")
 def redirect_to_url(code: str):
-    record = storage.get(code)
+    record = storage.get_link(code)
     if record is None:
         raise HTTPException(status_code=404, detail="short link not found")
     
-    record["clicks"] += 1
-    print(storage)
+    storage.increment_clicks(code)
+    
     return RedirectResponse(url=record["original_url"])
