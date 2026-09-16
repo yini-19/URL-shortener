@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, HttpUrl, EmailStr
+from fastapi.middleware.cors import CORSMiddleware
+
 
 import os
 import storage
@@ -90,3 +92,10 @@ def redirect_to_url(code: str):
     return RedirectResponse(url=record["original_url"])
 
 
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
